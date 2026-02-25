@@ -4,7 +4,7 @@ import logging
 import sys
 
 from display.abstract_display import AbstractDisplay
-from PIL import Image
+from PIL import Image, ImageMath, ImageOps
 from pathlib import Path
 from plugins.plugin_registry import get_plugin_instance
 
@@ -82,6 +82,33 @@ class WaveshareDisplay(AbstractDisplay):
                 write=True)
 
 
+    def split_bw_red_for_waveshare(self, img,
+                               bw_thr: int = 180,
+                               r_thr: int = 140,
+                               dom_delta: int = 60,
+                               red_layer_inverted: bool = True):
+        src = img.convert("RGB")
+        r, g, b = src.split()
+
+        red_sel_L = ImageMath.eval(
+            "convert((r > rt) & ((r - g) > d) & ((r - b) > d), 'L')",
+            r=r, g=g, b=b, rt=r_thr, d=dom_delta
+        )
+    
+        gray = ImageOps.grayscale(src)
+        bw = gray.point(lambda x: 0 if x < bw_thr else 255).convert("1")
+
+        bw = bw.convert("L")
+        bw.paste(255, mask=red_sel_L)
+        bw = bw.convert("1")
+
+        if red_layer_inverted:
+            red_layer = red_sel_L.point(lambda x: 0 if x else 255).convert("1")
+        else:
+            red_layer = red_sel_L.point(lambda x: 255 if x else 0).convert("1")
+
+        return bw, red_layer
+
     def display_image(self, image, image_settings=[]):
         
         """
@@ -112,10 +139,11 @@ class WaveshareDisplay(AbstractDisplay):
         if not self.bi_color_display:
             self.epd_display.display(self.epd_display.getbuffer(image))
         else:
-            color_image = Image.new('1', image.size, 255)
+            bw_image, red_layer = self.split_bw_red_for_waveshare(image)
+
             self.epd_display.display(
-                self.epd_display.getbuffer(image),
-                self.epd_display.getbuffer(color_image)
+                self.epd_display.getbuffer(bw_image),
+                self.epd_display.getbuffer(red_layer)
             )
 
         # Put device into low power mode (EPD displays maintain image when powered off)
