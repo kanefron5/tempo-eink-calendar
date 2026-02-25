@@ -55,6 +55,11 @@ class Calendar(BasePlugin):
         if view == 'timeGridWeek' and settings.get("displayPreviousDays") != "true":
             view = 'timeGrid'
 
+        is_skip_completed = device_config.get_config("skip_completed", default=False)
+
+        if is_skip_completed:
+            events = list(filter(lambda it: datetime.fromisoformat(it["end"]) > current_dt, events))
+
         template_params = {
             "view": view,
             "events": events,
