@@ -58,7 +58,7 @@ class Calendar(BasePlugin):
         is_skip_completed = device_config.get_config("skip_completed", default=False)
 
         if is_skip_completed:
-            events = list(filter(lambda it: datetime.fromisoformat(it["end"]) > current_dt, events))
+            events = list(filter(lambda it: datetime.fromisoformat(it["end"]).replace(tzinfo=None) > current_dt.replace(tzinfo=None), events))
 
         template_params = {
             "view": view,
@@ -86,7 +86,7 @@ class Calendar(BasePlugin):
             contrast_color = self.get_contrast_color(color)
             for event in events:
                 start, end, all_day = self.parse_data_points(event, tz)
-                event_key = str(event.get("summary")) + "_" + str(event.get("dtstart"))
+                event_key = str(event.get("summary")) + "_" + str(start)
                 if event_key not in seen_events:
                     parsed_event = {
                         "title": str(event.get("summary")),
